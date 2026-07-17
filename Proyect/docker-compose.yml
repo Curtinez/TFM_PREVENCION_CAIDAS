@@ -1,0 +1,156 @@
+
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3
+  user: "1000:0"
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    AIRFLOW_UID: 1000
+    AWS_ACCESS_KEY_ID: minioadmin
+    AWS_SECRET_ACCESS_KEY: minioadmin123
+    AWS_ENDPOINT_URL: http://minio:9000
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - tfm-network
+
+services:
+
+
+  postgres:
+    image: postgres:15
+    container_name: tfm-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    mem_limit: 256m
+    cpus: 0.5
+    networks:
+      - tfm-network
+
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: tfm-airflow-webserver
+    command: >
+      bash -c "sleep 5 && 
+      airflow db migrate && 
+      airflow users create --username admin --password admin --firstname Admin --lastname TFM --role Admin --email admin@tfm.local || true && 
+      airflow webserver"
+    ports:
+      - "8081:8080"
+    mem_limit: 1g
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: tfm-airflow-scheduler
+    command: bash -c "sleep 15 && airflow scheduler"
+    mem_limit: 1g
+    cpus: 1.0
+
+  
+  spark-master:
+    image: apache/spark:3.5.1
+    container_name: tfm-spark-master
+    user: root   # evita problemas de permisos al montar volúmenes propios
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+      --host spark-master
+    ports:
+      - "8080:8080"   # UI del master
+      - "7077:7077"   # Puerto del cluster
+    volumes:
+      - ./spark/jobs:/opt/spark/work-dir
+      - ./spark/jars:/opt/spark/extra-jars
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - tfm-network
+
+
+  spark-worker:
+    image: apache/spark:3.5.1
+    container_name: tfm-spark-worker
+    user: root
+    command: >
+      /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker
+      --cores 2 --memory 2g spark://spark-master:7077
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark/jobs:/opt/spark/work-dir
+      - ./spark/jars:/opt/spark/extra-jars
+    mem_limit: 2g
+    cpus: 2.0
+    networks:
+      - tfm-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: tfm-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Consola web
+    volumes:
+      - minio-data:/data
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - tfm-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: tfm-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123;
+      mc mb -p local/bronze;
+      mc mb -p local/silver;
+      mc mb -p local/gold;
+      mc mb -p local/source;
+      exit 0;
+      "
+    networks:
+      - tfm-network
+
+volumes:
+  postgres-db-volume:
+  minio-data:
+
+networks:
+  tfm-network:
+    driver: bridge
