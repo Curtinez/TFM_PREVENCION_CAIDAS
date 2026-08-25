@@ -1,0 +1,33 @@
+FROM apache/airflow:2.9.3
+
+USER root
+
+# Librerías de sistema para opencv/mediapipe, y JRE para spark-submit
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    openjdk-17-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+USER airflow
+
+# Provider de Spark, con el constraint oficial para no tocar la versión de Airflow
+RUN pip install --no-cache-dir \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.12.txt" \
+    apache-airflow==2.9.3 \
+    apache-airflow-providers-apache-spark
+
+# pyspark/delta-spark fijados a la versión del clúster (Dockerfile.spark),
+# más las dependencias de los jobs (mediapipe, deltalake, minio)
+RUN pip install --no-cache-dir \
+    pyspark==3.5.3 \
+    delta-spark==3.2.1 \
+    opencv-python-headless \
+    mediapipe \
+    numpy \
+    pandas \
+    pyarrow \
+    deltalake \
+    minio

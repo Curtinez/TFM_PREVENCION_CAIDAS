@@ -1,0 +1,17 @@
+FROM apache/spark:3.5.3
+
+USER root
+
+# Delta + Hadoop S3
+RUN mkdir -p /opt/spark/conf && \
+    echo "spark.jars.packages io.delta:delta-spark_2.12:3.2.1,org.apache.hadoop:hadoop-aws:3.3.4" >> /opt/spark/conf/spark-defaults.conf
+
+# pyspark fijado a la versión de la imagen base (delta-spark==3.2.1 lo requiere)
+RUN pip install --no-cache-dir \
+    pyspark==3.5.3 \
+    delta-spark==3.2.1 \
+    boto3==1.34.0 \
+    pandas \
+    pyarrow
+
+USER spark
