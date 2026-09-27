@@ -10,7 +10,7 @@ from minio.error import S3Error
 import serial
 
 # Configuración de la cámara
-VIDEO_URL = "http://192.168.0.48:8080/video"
+VIDEO_URL = "http://192.168.0.25:8080/video"
 FPS_UPLOAD = 5
 JPEG_QUALITY = 85
 ROTAR_FRAME = False

@@ -1,0 +1,5 @@
+streamlit
+deltalake
+pandas
+numpy
+plotly

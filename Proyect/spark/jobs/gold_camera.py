@@ -7,12 +7,12 @@ SILVER_PATH = "s3a://silver/camera/"
 GOLD_PATH = "s3a://gold/camera/"
 
 # Posición del objeto que marca los 3 metros (normalizada, 0-1)
-MARCA_X = 0.772
-MARCA_Y = 0.738
+MARCA_X = 0.818
+MARCA_Y = 0.735
 
 # Dirección (dx, dy) de la recta de corte que pasa por el objeto
 DIR_MARCHA_X = 1.0
-DIR_MARCHA_Y = -1.7
+DIR_MARCHA_Y = -2.10
 
 # Bajo este ángulo de rodilla (grados) consideramos que está sentado
 SENTADO_ANGULO_MAX = 120.0

@@ -13,15 +13,15 @@ GOLD_PATH = "s3a://gold/imu/"
 # real y no un parpadeo de mediapipe (ver docstring)
 MIN_DWELL_S = 1.0
 
-# Por encima de esta magnitud de giroscopio (°/s) consideramos que hay
-# movimiento activo
-UMBRAL_ACTIVIDAD_DPS = 20.0
-
 # Un pico de magnitud de aceleración por encima de este valor (g) se
 # cuenta como paso. ~1g es la línea base en reposo (gravedad).
-# Calibrado con datos a ~5Hz; revisar con datos reales ahora que el IMU
-# muestrea a ~100Hz (ver tug.py).
 UMBRAL_PASO_G = 1.1
+
+# Separación mínima (s) entre dos pasos aceptados. A ~100Hz una sola
+# zancada puede generar varios máximos locales seguidos (ruido del
+# sensor); sin este mínimo se contarían varios "pasos" por zancada.
+# Ni una marcha muy rápida baja de ~2-3 pasos/s.
+DISTANCIA_MIN_PASO_S = 0.3
 
 # Corte clínico estándar del TUG: >=12s se considera riesgo alto de caída / fragilidad
 FRAGIL_UMBRAL_S = 12.0
@@ -102,13 +102,24 @@ def tramos(valores_bool: np.ndarray, tiempos_s: np.ndarray) -> list:
     return resultado
 
 
-# Detecta picos locales simples (mayor que ambos vecinos) por encima de un umbral
-def detectar_picos(valores: np.ndarray, tiempos: np.ndarray, umbral: float) -> np.ndarray:
-    idx = [
+# Detecta picos locales (mayor que ambos vecinos) por encima de un umbral,
+# descartando los que caen a menos de distancia_min del último aceptado
+def detectar_picos(valores: np.ndarray, tiempos: np.ndarray, umbral: float, distancia_min: float) -> np.ndarray:
+    idx_candidatos = [
         i for i in range(1, len(valores) - 1)
         if valores[i] > valores[i - 1] and valores[i] > valores[i + 1] and valores[i] > umbral
     ]
-    return tiempos[idx]
+
+    picos = []
+    ultimo_t = None
+    for i in idx_candidatos:
+        t = tiempos[i]
+        if ultimo_t is not None and (t - ultimo_t) < distancia_min:
+            continue
+        picos.append(t)
+        ultimo_t = t
+
+    return np.array(picos)
 
 
 # --- Etapa 1: eventos de la prueba a partir de Gold Camera ----------------
@@ -224,7 +235,9 @@ def calcular_imu_prueba(pdf: pd.DataFrame) -> pd.DataFrame:
     else:
         ventana_de_pie = t_abs_imu >= t1_abs
 
-    tiempos_pico = detectar_picos(accel_mag[ventana_de_pie], t_s_imu[ventana_de_pie], UMBRAL_PASO_G)
+    tiempos_pico = detectar_picos(
+        accel_mag[ventana_de_pie], t_s_imu[ventana_de_pie], UMBRAL_PASO_G, DISTANCIA_MIN_PASO_S
+    )
     intervalos = np.diff(tiempos_pico)
     fila["n_pasos_detectados"] = int(len(tiempos_pico))
     if len(intervalos) >= 2:
