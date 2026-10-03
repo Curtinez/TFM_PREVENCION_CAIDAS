@@ -1,19 +1,3 @@
-"""
-app.py — Dashboard de resultados del pipeline TUG.
-
-Lee directamente las tablas Delta (sin Spark, igual que jobs/silver_camera_pose.py
-y tests/pose_detection/verificar_gold_camara.py) y las muestra en Streamlit:
-un resumen de todas las pruebas y el detalle de una en concreto.
-
-Arranque local:
-    pip install -r dashboard/requirements.txt
-    streamlit run dashboard/app.py
-
-Por defecto apunta a MinIO en localhost:9000 (pensado para correr fuera de
-Docker, como los demás scripts de verificación). Si se lanza dentro de la
-red de docker-compose, sobreescribe AWS_ENDPOINT_URL=http://minio:9000.
-"""
-
 import os
 
 import numpy as np
@@ -22,7 +6,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from deltalake import DeltaTable
 
-# ── Paleta (dataviz skill: references/palette.md, ya validada) ──────
+# ── Paleta 
 BLUE = "#2a78d6"
 ORANGE = "#eb6834"
 AQUA = "#1baf7a"
@@ -85,9 +69,6 @@ def cargar_gold_camera(prueba_id: str) -> pd.DataFrame:
     if df.empty:
         return df
     df["t_s"] = (df["frame_timestamp_ms"] - df["frame_timestamp_ms"].iloc[0]) / 1000.0
-    # sentado/sobrepasado pueden ser None en algún frame suelto (mediapipe sin
-    # detección ese frame): el frame hereda el estado del anterior en vez de
-    # romper la gráfica.
     df["sentado"] = df["sentado"].ffill().bfill()
     df["sobrepasado"] = df["sobrepasado"].ffill().bfill()
     return df
@@ -100,9 +81,7 @@ def cargar_silver_imu(prueba_id: str, t0_abs_ms: float | None = None) -> pd.Data
     df = df[(df["prueba_id"] == prueba_id)].sort_values("host_timestamp_ms").reset_index(drop=True)
     if df.empty:
         return df
-    # Mismo origen de tiempo que la cámara (t0 = primer frame de Gold Camera),
-    # para que las marcas de fase (calculadas sobre ese origen en gold_imu.py)
-    # caigan en el instante correcto también en el eje del IMU.
+
     origen = t0_abs_ms if t0_abs_ms is not None else df["host_timestamp_ms"].iloc[0]
     df["t_s"] = (df["host_timestamp_ms"] - origen) / 1000.0
     df["accel_mag"] = np.sqrt(df["accel_x_g"] ** 2 + df["accel_y_g"] ** 2 + df["accel_z_g"] ** 2)
@@ -110,9 +89,7 @@ def cargar_silver_imu(prueba_id: str, t0_abs_ms: float | None = None) -> pd.Data
     return df
 
 
-# Instantes (mismo origen que t_s) en los que termina cada fase, a partir de
-# las duraciones de Gold IMU. Se corta en la primera fase sin dato (prueba
-# no finalizada) en vez de mostrar marcas a medias.
+
 def calcular_marcas_fase(fila: pd.Series) -> list[dict]:
     etiquetas = {
         "Levantarse": "Fin levantarse",
@@ -183,10 +160,9 @@ def figura_base() -> go.Figure:
     return fig
 
 
-# ── Tarjetas de métricas (más vistosas que st.metric) ────────────────
+# ── Tarjetas de métricas  ────────────────
 def render_metricas(items: list[dict], vertical: bool = False) -> None:
-    """items: lista de {label, value, color} — color es el acento izquierdo.
-    Si vertical=True, las tarjetas se apilan una debajo de otra en vez de en fila."""
+
     st.markdown(
         """
         <style>

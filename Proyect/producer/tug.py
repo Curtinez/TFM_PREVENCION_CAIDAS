@@ -10,7 +10,7 @@ from minio.error import S3Error
 import serial
 
 # Configuración de la cámara
-VIDEO_URL = "http://192.168.0.25:8080/video"
+VIDEO_URL = "http://192.168.0.17:8080/video"
 FPS_UPLOAD = 5
 JPEG_QUALITY = 85
 ROTAR_FRAME = False
@@ -63,8 +63,7 @@ upload_queue = queue.Queue()
 frames_subidos = 0
 frames_lock = threading.Lock()
 
-# Estado de la prueba visible para el hilo del IMU (el resto vive como
-# variables locales en main(), que corre en el hilo de la cámara)
+# Estado de la prueba visible para el hilo del IMU
 estado_imu_lock = threading.Lock()
 estado_imu = {"activa": False, "prueba_id": None}
 
@@ -162,8 +161,6 @@ def imu_reader() -> None:
             if not activa:
                 continue  # sin prueba en curso, se descarta la muestra
 
-            # No se trunca a entero: a ~100Hz dos muestras seguidas podrían
-            # caer en el mismo milisegundo y salir como duplicadas sin serlo.
             host_timestamp_ms = time.time() * 1000
             with imu_buffer_lock:
                 imu_buffer.append([host_timestamp_ms, ts, ax, ay, az, gx, gy, gz])

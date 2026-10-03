@@ -136,7 +136,6 @@ def calcular_caracteristicas(df):
     )
 
     # Avance a lo largo de la dirección de marcha, medido desde el objeto.
-    # Positivo == por delante de la marca (en la recta diagonal), no solo a su derecha.
     avance = (pie_x - F.lit(MARCA_X)) * F.lit(DIR_MARCHA_X) + (pie_y - F.lit(MARCA_Y)) * F.lit(DIR_MARCHA_Y)
 
     df = df.withColumn("sobrepasado", F.when(pie_x.isNotNull(), avance > 0))

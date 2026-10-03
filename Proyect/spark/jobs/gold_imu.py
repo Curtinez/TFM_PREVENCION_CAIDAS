@@ -10,17 +10,13 @@ SILVER_IMU_PATH = "s3a://silver/imu/"
 GOLD_PATH = "s3a://gold/imu/"
 
 # Ventana mínima (segundos) para considerar un tramo de sentado/sobrepasado
-# real y no un parpadeo de mediapipe (ver docstring)
 MIN_DWELL_S = 1.0
 
 # Un pico de magnitud de aceleración por encima de este valor (g) se
-# cuenta como paso. ~1g es la línea base en reposo (gravedad).
+# cuenta como paso.
 UMBRAL_PASO_G = 1.1
 
-# Separación mínima (s) entre dos pasos aceptados. A ~100Hz una sola
-# zancada puede generar varios máximos locales seguidos (ruido del
-# sensor); sin este mínimo se contarían varios "pasos" por zancada.
-# Ni una marcha muy rápida baja de ~2-3 pasos/s.
+# Separación mínima (s) entre dos pasos aceptados
 DISTANCIA_MIN_PASO_S = 0.3
 
 # Corte clínico estándar del TUG: >=12s se considera riesgo alto de caída / fragilidad
